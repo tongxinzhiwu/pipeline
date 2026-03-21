@@ -1,6 +1,6 @@
 # Pipeline CLI
 
-A kubectl-style CLI for the Makeblock Pipeline CI/CD system. Manage projects, trigger pipelines, stream logs, and check build status — all from your terminal.
+CLI tool for the Makeblock Pipeline CI/CD system. Manage projects, trigger pipelines, stream logs, and check build status — all from your terminal.
 
 ## Quick Install
 
