@@ -1,6 +1,7 @@
 #!/bin/bash
 
 set -e
+trap 'rm -f pipeline.tar.gz; rm -rf pipeline-*-*' EXIT
 
 VERSION=""
 
@@ -46,7 +47,7 @@ DOWNLOAD_URL="https://github.com/$GITHUB_ORG/$GITHUB_REPO/releases/download/$VER
 echo [INFO] Downloading pipeline...
 echo [INFO] URL: "$DOWNLOAD_URL"
 
-curl -L --insecure -o pipeline.tar.gz "$DOWNLOAD_URL"
+curl -fSL -o pipeline.tar.gz "$DOWNLOAD_URL"
 
 # extract pipeline
 echo [INFO] Extracting pipeline...
@@ -64,25 +65,17 @@ fi
 
 chmod +x "$PIPELINE_BIN"
 
-# install to ~/.pipeline/
-BIN_PATH="${HOME}/.pipeline"
-mkdir -p "$BIN_PATH"
-mv "$PIPELINE_BIN" "$BIN_PATH"
-
-# export path
-echo [INFO] Adding "$BIN_PATH" to PATH...
-echo "export PATH=\$PATH:$BIN_PATH" >> ~/.profile
-source ~/.profile
-echo "the pipeline bin path is $BIN_PATH"
-
-# cleanup
-echo [INFO] Cleaning up...
-rm pipeline.tar.gz
-rm -rf "pipeline-$OS-$ARCH"
+# install to /usr/local/bin (falls back to ~/.pipeline if no permission)
+BIN_PATH="/usr/local/bin"
+if [ -w "$BIN_PATH" ]; then
+  mv "$PIPELINE_BIN" "$BIN_PATH/pipeline"
+else
+  echo "[INFO] No write permission to $BIN_PATH, trying with sudo..."
+  sudo mv "$PIPELINE_BIN" "$BIN_PATH/pipeline"
+fi
 
 # version
-echo [INFO] "$(pipeline --version)"
+echo "[INFO] $(pipeline --version)"
 
 # done
-echo [INFO] Installation complete.
-echo [INFO] Run 'pipeline --help' to get started.
+echo "[INFO] Installation complete. Run 'pipeline --help' to get started."
