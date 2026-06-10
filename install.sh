@@ -3,7 +3,8 @@
 set -e
 trap 'rm -f pipeline.tar.gz; rm -rf pipeline-*-*' EXIT
 
-VERSION=""
+# allow pinning a version via env, e.g. `... | VERSION=v2.2.0 bash`
+VERSION="${VERSION:-}"
 
 GITHUB_ORG="tongxinzhiwu"
 GITHUB_REPO="pipeline"
@@ -37,10 +38,28 @@ if ! command -v curl &> /dev/null; then
     exit 1
 fi
 
-# if not specified, get the latest version
+# if not specified, get the latest version from the GitHub API
 if [ -z "$VERSION" ]; then
-  VERSION=$(curl --silent "https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/releases/latest" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+  echo [INFO] Resolving latest version...
+  API_URL="https://api.github.com/repos/$GITHUB_ORG/$GITHUB_REPO/releases/latest"
+  # -f makes curl fail on HTTP errors (e.g. 403 rate limit) instead of
+  # feeding an error payload into the parser below; || true keeps set -e happy.
+  API_RESPONSE=$(curl -fsSL -H "Accept: application/vnd.github+json" "$API_URL" 2>/dev/null || true)
+  VERSION=$(echo "$API_RESPONSE" | grep '"tag_name":' | sed -E 's/.*"([^"]+)".*/\1/')
+
+  if [ -z "$VERSION" ]; then
+    echo "[ERROR] Could not determine the latest version from the GitHub API." >&2
+    if echo "$API_RESPONSE" | grep -q "rate limit"; then
+      echo "[ERROR] GitHub API rate limit exceeded for your IP (60 req/hour for unauthenticated requests)." >&2
+      echo "[ERROR] On a shared/NAT egress this is hit easily." >&2
+    fi
+    echo "[ERROR] Retry later, or pin a version explicitly, e.g.:" >&2
+    echo "        curl -fsSL https://raw.githubusercontent.com/$GITHUB_ORG/$GITHUB_REPO/main/install.sh | VERSION=v2.2.0 bash" >&2
+    exit 1
+  fi
 fi
+
+echo [INFO] VERSION=$VERSION
 
 # download pipeline cli
 DOWNLOAD_URL="https://github.com/$GITHUB_ORG/$GITHUB_REPO/releases/download/$VERSION/pipeline-$OS-$ARCH.tar.gz"
